@@ -8,5 +8,5 @@
     "strict": true,
     "skipLibCheck": true
   },
-  "include": ["src/**/*", "vitest.config.ts", "test/index.test.ts"],
+  "include": ["src/**/*", "vitest.config.ts", "test/**.*"],
 }

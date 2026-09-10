@@ -101,7 +101,7 @@ export interface PartieJouee {
  * @param pointage pointage au début du round
  * @returns le nouveau round à ajouter à l'historique de la partie
  */
-function jouerRound(j1: Joueur, j2: Joueur, historique: Round[], pointage: Pointage): Round {
+export function jouerRound(j1: Joueur, j2: Joueur, historique: Round[], pointage: Pointage): Round {
   const a1 = j1.strategie({ moi: "j1", historique, pointage });
   const a2 = j2.strategie({ moi: "j2", historique, pointage });
   const r = resolution(a1, a2);
