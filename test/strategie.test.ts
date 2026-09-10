@@ -1,5 +1,15 @@
 import { describe, it, expect, vi } from "vitest";
-import { roche, papier, ciseaux, type Action, type Contexte, type Round, type Pointage, Resultat } from "../src/rps.js";
+import {
+  roche,
+  papier,
+  ciseaux,
+  type Action,
+  type Contexte,
+  type Round,
+  type Pointage,
+  Resultat,
+  Decision,
+} from "../src/rps.js";
 import {
   dernierRound,
   derniereActionJoueur,
@@ -24,12 +34,14 @@ function creerContexte(
   options: {
     moi?: "j1" | "j2";
     historique?: Round[];
+    historiqueDecisions?: Decision[];
     pointage?: Pointage;
   } = {},
 ): Contexte {
   return {
     moi: options.moi ?? "j1",
     historique: options.historique ?? [],
+    historiqueDecisions: options.historiqueDecisions ?? [],
     pointage: options.pointage ?? { joueur1: 0, joueur2: 0 },
   };
 }
@@ -147,10 +159,10 @@ describe("Combinateurs de stratégies", () => {
     const strategie = constant(ciseaux());
     const ctx = creerContexte();
 
-    expect(strategie(ctx).action).toBe("ciseaux");
+    expect(strategie(ctx)[0].action).toBe("ciseaux");
 
     const ctx2 = creerContexte({ historique: [creerRound(ciseaux(), ciseaux(), "nul")] });
-    expect(strategie(ctx2).action).toBe("ciseaux");
+    expect(strategie(ctx)[0].action).toBe("ciseaux");
   });
 
   describe("miroir", () => {
@@ -158,7 +170,7 @@ describe("Combinateurs de stratégies", () => {
       const strategie = miroir(papier());
       const ctx = creerContexte({ historique: [] });
 
-      expect(strategie(ctx).action).toBe("papier");
+      expect(strategie(ctx)[0].action).toBe("papier");
     });
 
     it("rejoue la dernière action jouée par l'adversaire", () => {
@@ -168,7 +180,7 @@ describe("Combinateurs de stratégies", () => {
         historique: [creerRound(roche(), ciseaux(), "j1")],
       });
 
-      expect(strategie(ctx).action).toBe("ciseaux");
+      expect(strategie(ctx)[0].action).toBe("ciseaux");
     });
   });
 
@@ -177,39 +189,46 @@ describe("Combinateurs de stratégies", () => {
     const strategieInverse = inverse(strategieDeBase);
     const ctx = creerContexte();
 
-    expect(strategieInverse(ctx).action).toBe("papier");
+    expect(strategieInverse(ctx)[0].action).toBe("papier");
   });
 
-  it("enBoucle cycle indéfiniment sur la séquence en fonction du round actuel", () => {
+  it("enBoucle cycle indéfiniment sur la séquence en fonction de la sequence", () => {
     const sequence = [roche(), papier(), ciseaux()];
     const strategie = enBoucle(sequence);
 
-    // Tour 0 (historique vide)
-    expect(strategie(creerContexte({ historique: [] })).action).toBe("roche");
+    // historique vide
+    const t1 = strategie(creerContexte({ historique: [], historiqueDecisions: [] }));
+    expect(t1[0].action).toBe("roche");
+    expect(t1[1].strategie).toBe("boucle");
 
-    // Tour 1
+    // tour suivant
     const hist1 = [creerRound(roche(), roche(), "nul")];
-    expect(strategie(creerContexte({ historique: hist1 })).action).toBe("papier");
+    const histDecision1 = [{ strategie: "boucle", index: 0 }];
+    const t2 = strategie(creerContexte({ historique: hist1, historiqueDecisions: histDecision1 }));
+    expect(t2[0].action).toBe("papier");
+    expect(t2[1].strategie).toBe("boucle");
 
-    // Tour 2
-    const hist2 = [...hist1, creerRound(roche(), roche(), "nul")];
-    expect(strategie(creerContexte({ historique: hist2 })).action).toBe("ciseaux");
+    // si changement de strategie
+    const hist2 = [creerRound(roche(), roche(), "nul")];
+    const histDecision2 = [{ strategie: "autre" }];
+    expect(strategie(creerContexte({ historique: hist2, historiqueDecisions: histDecision2 }))[0].action).toBe("roche");
 
-    // Tour 3
-    const hist3 = [...hist2, creerRound(roche(), roche(), "nul")];
-    expect(strategie(creerContexte({ historique: hist3 })).action).toBe("roche");
+    // si index == longeur
+    const hist3 = [creerRound(roche(), roche(), "nul")];
+    const histDecision3 = [{ strategie: "boucle", index: 2 }];
+    expect(strategie(creerContexte({ historique: hist3, historiqueDecisions: histDecision3 }))[0].action).toBe("roche");
   });
 
   it("si aiguille vers la branche 'alors' ou 'sinon' selon le résultat du prédicat", () => {
-    const alors = vi.fn().mockReturnValue(ciseaux());
-    const sinon = vi.fn().mockReturnValue(papier());
+    const alors = vi.fn().mockReturnValue([ciseaux(), { strategie: "test" }]);
+    const sinon = vi.fn().mockReturnValue([papier(), { strategie: "test" }]);
     const predicatVrai = () => true;
     const predicatFaux = () => false;
 
     const ctx = creerContexte();
 
     const strategieVraie = si(predicatVrai, alors, sinon);
-    expect(strategieVraie(ctx).action).toBe("ciseaux");
+    expect(strategieVraie(ctx)[0].action).toBe("ciseaux");
     expect(alors).toHaveBeenCalledWith(ctx);
     expect(sinon).not.toHaveBeenCalled();
 
@@ -217,7 +236,7 @@ describe("Combinateurs de stratégies", () => {
     sinon.mockClear();
 
     const strategieFausse = si(predicatFaux, alors, sinon);
-    expect(strategieFausse(ctx).action).toBe("papier");
+    expect(strategieFausse(ctx)[0].action).toBe("papier");
     expect(sinon).toHaveBeenCalledWith(ctx);
     expect(alors).not.toHaveBeenCalled();
   });

@@ -1,8 +1,14 @@
-import { ciseaux, Joueur, roche, Round, papier, Action, IdJoueur, Contexte, Strategie } from "./rps.js";
+import { ciseaux, Joueur, roche, Round, papier, Action, IdJoueur, Contexte, Strategie, Decision } from "./rps.js";
 
 // Extracteurs
 export function dernierRound(contexte: Contexte): Round | null {
   return contexte.historique.length > 0 ? contexte.historique[contexte.historique.length - 1] : null;
+}
+
+export function derniereDecision(contexte: Contexte): Decision | null {
+  return contexte.historiqueDecisions.length > 0
+    ? contexte.historiqueDecisions[contexte.historiqueDecisions.length - 1]
+    : null;
 }
 
 export function derniereActionJoueur(joueur: IdJoueur, contexte: Contexte): Action | null {
@@ -61,19 +67,26 @@ export function estPerdant(contexte: Contexte): boolean {
 
 // Stratégies
 export function constant(action: Action): Strategie {
-  return (contexte: Contexte) => action;
+  return (contexte: Contexte) => [action, { strategie: "constant", a: action.action }];
 }
 
 export function miroir(defaut: Action): Strategie {
-  return (contexte: Contexte) => derniereActionAdversaire(contexte) ?? defaut;
+  return (contexte: Contexte) => [derniereActionAdversaire(contexte) ?? defaut, { strategie: "miroir" }];
 }
 
 export function inverse(strategie: Strategie): Strategie {
-  return (contexte: Contexte) => contre(strategie(contexte));
+  return (contexte: Contexte) => [contre(strategie(contexte)[0]), { strategie: "inverse" }];
 }
 
 export function enBoucle(sequence: Action[]): Strategie {
-  return (contexte: Contexte) => sequence[contexte.historique.length % sequence.length];
+  return (contexte: Contexte) => {
+    const d = derniereDecision(contexte);
+    if (d === null || d.strategie !== "boucle") {
+      return [sequence[0], { strategie: "boucle", index: 0 }];
+    }
+    const index = (d as { strategie: string; index: number }).index + 1;
+    return [sequence[index % sequence.length], { strategie: "boucle", index: index }];
+  };
 }
 
 export function si(predicat: (contexte: Contexte) => boolean, alors: Strategie, sinon: Strategie): Strategie {

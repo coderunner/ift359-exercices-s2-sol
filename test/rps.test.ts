@@ -4,24 +4,24 @@ import { jouerRound, jouerPartie, roche, papier, ciseaux, type Joueur, type Poin
 describe("Simulateur Roche Papier Ciseaux", () => {
   const joueurRoche: Joueur = {
     nom: "Joueur Roche",
-    strategie: () => roche(),
+    strategie: () => [roche(), { strategie: "fix" }],
   };
 
   const joueurPapier: Joueur = {
     nom: "Joueur Papier",
-    strategie: () => papier(),
+    strategie: () => [papier(), { strategie: "fix" }],
   };
 
   const joueurCiseaux: Joueur = {
     nom: "Joueur Ciseaux",
-    strategie: () => ciseaux(),
+    strategie: () => [ciseaux(), { strategie: "fix" }],
   };
 
   const pointageInitial: Pointage = { joueur1: 0, joueur2: 0 };
 
   describe("jouerRound", () => {
     it("détermine la victoire du joueur 1 (roche bat ciseaux)", () => {
-      const round = jouerRound(joueurRoche, joueurCiseaux, [], pointageInitial);
+      const [round, _] = jouerRound(joueurRoche, joueurCiseaux, [], [], pointageInitial);
 
       expect(round.resultat).toBe("j1");
       expect(round.actionJoueur1.action).toBe("roche");
@@ -30,14 +30,14 @@ describe("Simulateur Roche Papier Ciseaux", () => {
     });
 
     it("détermine la victoire du joueur 2 (ciseaux battus par roche pour j2)", () => {
-      const round = jouerRound(joueurCiseaux, joueurRoche, [], pointageInitial);
+      const [round, _] = jouerRound(joueurCiseaux, joueurRoche, [], [], pointageInitial);
 
       expect(round.resultat).toBe("j2");
       expect(round.pointage).toEqual({ joueur1: 0, joueur2: 1 });
     });
 
     it("résout une partie nulle lorsque les deux actions sont identiques", () => {
-      const round = jouerRound(joueurPapier, joueurPapier, [], pointageInitial);
+      const [round, _] = jouerRound(joueurPapier, joueurPapier, [], [], pointageInitial);
 
       expect(round.resultat).toBe("nul");
       expect(round.pointage).toEqual({ joueur1: 0, joueur2: 0 });
@@ -46,7 +46,7 @@ describe("Simulateur Roche Papier Ciseaux", () => {
     it("incrémente le pointage à partir d'un score préexistant", () => {
       const scoreEnCours: Pointage = { joueur1: 2, joueur2: 1 };
 
-      const round = jouerRound(joueurPapier, joueurRoche, [], scoreEnCours);
+      const [round, _] = jouerRound(joueurPapier, joueurRoche, [], [], scoreEnCours);
 
       expect(round.resultat).toBe("j1");
       expect(round.pointage).toEqual({ joueur1: 3, joueur2: 1 });
@@ -79,7 +79,7 @@ describe("Simulateur Roche Papier Ciseaux", () => {
         strategie: () => {
           const a = tour === 0 ? papier() : roche();
           tour++;
-          return a;
+          return [a, { strategie: "test" }];
         },
       };
 

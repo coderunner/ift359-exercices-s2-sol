@@ -58,11 +58,16 @@ export function ciseaux(commentaire?: string): Ciseaux {
 export interface Contexte {
   readonly moi: IdJoueur; // identité du joueur
   readonly historique: Round[]; // les rounds passés
+  readonly historiqueDecisions: Decision[]; // historiques des décisons passées
   readonly pointage: Pointage; // le pointage au début du round
 }
 
+export interface Decision {
+  strategie: string;
+}
+
 // Type qui représente une stratégie qui, a partir du contexte de la partie, retourne l'action du joueur
-export type Strategie = (contexte: Contexte) => Action;
+export type Strategie = (contexte: Contexte) => [Action, Decision];
 
 // Interface représentant un joueur
 export interface Joueur {
@@ -101,21 +106,32 @@ export interface PartieJouee {
  * @param pointage pointage au début du round
  * @returns le nouveau round à ajouter à l'historique de la partie
  */
-export function jouerRound(j1: Joueur, j2: Joueur, historique: Round[], pointage: Pointage): Round {
-  const a1 = j1.strategie({ moi: "j1", historique, pointage });
-  const a2 = j2.strategie({ moi: "j2", historique, pointage });
+export function jouerRound(
+  j1: Joueur,
+  j2: Joueur,
+  historique: Round[],
+  historiqueDecisions: [Decision, Decision][],
+  pointage: Pointage,
+): [Round, [Decision, Decision]] {
+  const decisions1 = historiqueDecisions.map((d) => d[0]);
+  const [a1, d1] = j1.strategie({ moi: "j1", historique, historiqueDecisions: decisions1, pointage });
+  const decisions2 = historiqueDecisions.map((d) => d[1]);
+  const [a2, d2] = j2.strategie({ moi: "j2", historique, historiqueDecisions: decisions2, pointage });
   const r = resolution(a1, a2);
   const nouveauPointage: Pointage = {
     joueur1: r === "j1" ? pointage.joueur1 + 1 : pointage.joueur1,
     joueur2: r === "j2" ? pointage.joueur2 + 1 : pointage.joueur2,
   };
 
-  return {
-    actionJoueur1: a1,
-    actionJoueur2: a2,
-    resultat: r,
-    pointage: nouveauPointage,
-  };
+  return [
+    {
+      actionJoueur1: a1,
+      actionJoueur2: a2,
+      resultat: r,
+      pointage: nouveauPointage,
+    },
+    [d1, d2],
+  ];
 }
 
 /**
@@ -126,16 +142,20 @@ export function jouerRound(j1: Joueur, j2: Joueur, historique: Round[], pointage
  * @returns Les détails de la partie complétée (joueurs et historique des rounds)
  */
 export function jouerPartie(j1: Joueur, j2: Joueur, pointageCible: number): PartieJouee {
-  function jouer(roundsJoues: Round[], pointageCourrant: Pointage): PartieJouee {
+  function jouer(
+    roundsJoues: Round[],
+    decisionsPrises: [Decision, Decision][],
+    pointageCourrant: Pointage,
+  ): PartieJouee {
     if (pointageCourrant.joueur1 >= pointageCible || pointageCourrant.joueur2 >= pointageCible) {
       return { joueur1: j1, joueur2: j2, rounds: roundsJoues };
     }
 
-    const round = jouerRound(j1, j2, roundsJoues, pointageCourrant);
-    return jouer([...roundsJoues, round], round.pointage);
+    const [round, decisions] = jouerRound(j1, j2, roundsJoues, decisionsPrises, pointageCourrant);
+    return jouer([...roundsJoues, round], [...decisionsPrises, decisions], round.pointage);
   }
 
-  return jouer([], { joueur1: 0, joueur2: 0 });
+  return jouer([], [], { joueur1: 0, joueur2: 0 });
 }
 
 // SECTION 3 - AFFICHAGE
